@@ -6,6 +6,7 @@ use postgres::{Client, NoTls};
 use rocket_contrib::json::Json;
 use serde::{Serialize, Deserialize};
 use magic_crypt::{new_magic_crypt, MagicCryptTrait};
+use rand::distributions::{Alphanumeric, DistString};
 
 // TODO: GENEREAL:
 // TODO: Implement Error Handling
@@ -41,6 +42,25 @@ fn create_users_list(query_result: Vec<postgres::row::Row>) -> Vec<User> {
     return vec_user;
 }
 
+#[post("/login", format = "json", data = "<login_json>")]
+fn login(login_json: Json<Login>) -> String {
+    let login: Login = login_json.into_inner();
+    let mut client = Client::connect("host=database port=5432 user=postgres password=test", NoTls).unwrap();
+    // Key for encryption
+    let mc = new_magic_crypt!("Y2ps3f6ZoTbpZo8ZtUGYLGEjwLDQ2839zu45rfue3wrhi87123", 256);
+    let encrypted_password = String::from(mc.encrypt_str_to_base64(login.password));
+    let query_result = client.query("SELECT * FROM users WHERE login_name = $1 AND password = $2", &[&login.login_name, &encrypted_password]).unwrap();
+    if query_result.len() == 0{
+        //Login failed
+        return format!("ERROR: Login failed.");
+    } else {
+        // Login success
+        // create and return auth token
+        let string = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
+        return format!("{}", string);
+    }
+}
+
 #[get("/getUsers")]
 fn get_users() -> Json<Vec<User>> {
     let mut client = Client::connect("host=database port=5432 user=postgres password=test", NoTls).unwrap();
@@ -62,7 +82,8 @@ fn register(register_json: Json<Register>) -> Json<Vec<User>> {
     let register: Register = register_json.into_inner();
 
     // encrypt password
-    let mc = new_magic_crypt!("magickey", 256);
+    // Key for encryption
+    let mc = new_magic_crypt!("Y2ps3f6ZoTbpZo8ZtUGYLGEjwLDQ2839zu45rfue3wrhi87123", 256);
     let encrypted_password = String::from(mc.encrypt_str_to_base64(register.password));
 
     let mut client = Client::connect("host=database port=5432 user=postgres password=test", NoTls).unwrap();
@@ -74,7 +95,13 @@ fn register(register_json: Json<Register>) -> Json<Vec<User>> {
 }
 
 fn main()  {
-    rocket::ignite().mount("/", routes![get_users, register, change_user]).launch();
+    rocket::ignite().mount("/", routes![get_users, register, change_user, login]).launch();
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Login {
+    login_name: String,
+    password: String
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -97,12 +124,6 @@ struct Register {
     street: String,
     house_number: i32,
     postal_code: i32,
-    login_name: String,
-    password: String
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Login {
     login_name: String,
     password: String
 }
