@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS users (
     house_number int NOT NULL,
     postal_code int NOT NULL,
     login_name varchar(255) PRIMARY KEY,
-    password varchar(255));
+    password varchar(255) NOT NULL,
+    auth_token varchar(255),
+    auth_token_timestamp timestamp);
 
 INSERT INTO users(email, firstname, lastname, street, house_number, postal_code, login_name, password) VALUES ('max.musterman@test.de','max','musterman', 'In der Straße', 10, 50667, 'testuser1', 'test123'),
                                                                                                               ('lisa.musterfrau@test.de','lisa','musterfrau', 'An der Gasse', 24, 10115, 'testuser2', 'test123'),

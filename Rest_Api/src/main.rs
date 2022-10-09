@@ -18,7 +18,6 @@ use rand::distributions::{Alphanumeric, DistString};
 // TODO: Passwort Reset implementieren -> Dort mal bitte schauen ob MagicCrypt ausreichend ist ! -> Generell die Grundlagen zur Passwort verschlüsselung anschauen !
 // TODO: rocket toml Datie anlegen um port auch zu wechseln
 // TODO: Change reveiving port for postgres db
-// TODO: Create Login function -> erstelle ein Auth Token dann -> dafür noch eine neue bib suchen !
 
 
 fn create_users_list(query_result: Vec<postgres::row::Row>) -> Vec<User> {
@@ -56,8 +55,13 @@ fn login(login_json: Json<Login>) -> String {
     } else {
         // Login success
         // create and return auth token
-        let string = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
-        return format!("{}", string);
+        let auth_token = Alphanumeric.sample_string(&mut rand::thread_rng(), 32);
+        let vec_user = create_users_list(query_result);
+        let id = vec_user[0].id;
+
+        client.execute("UPDATE users SET auth_token = $1, auth_token_timestamp = (SELECT CURRENT_TIMESTAMP) WHERE id = $2",
+                       &[&auth_token, &id]).unwrap();
+        return format!("{}", auth_token);
     }
 }
 
@@ -80,7 +84,6 @@ fn change_user(user_json: Json<User>) -> String {
 #[post("/register", format = "json", data = "<register_json>")]
 fn register(register_json: Json<Register>) -> Json<Vec<User>> {
     let register: Register = register_json.into_inner();
-
     // encrypt password
     // Key for encryption
     let mc = new_magic_crypt!("Y2ps3f6ZoTbpZo8ZtUGYLGEjwLDQ2839zu45rfue3wrhi87123", 256);
