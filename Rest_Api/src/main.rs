@@ -12,6 +12,8 @@ use rand::distributions::{Alphanumeric, DistString};
 // TODO: Implement Error Handling
 // TODO: Authentifizierung innerhalb der MS Architektur noch festlegen
 // TODO: Rust nightly -> Wirklich empfehlenswert fuer production? -> gibt es auch eine Alternative um rocket zu kompelieren ?
+// TODO: Datenbank Daten nicht hard coden
+// TODO: Sollte irgendwo anders bereitstehen
 
 // TODO: Benutzerverwaltung:
 // TODO: Passwort speichern: -> Dort mal bitte schauen ob MagicCrypt ausreichend ist ! -> Generell die Grundlagen zur Passwort verschlüsselung anschauen !
@@ -19,6 +21,24 @@ use rand::distributions::{Alphanumeric, DistString};
 // TODO: rocket toml Datie anlegen um port auch zu wechseln
 // TODO: Change reveiving port for postgres db
 
+// TODO: Create Middleware function that check auth token ! -> in Rocket = Fairings -> WICHTIG: Fairings cannot terminate or respond to an incoming request directly. -> SOMIT MUSS ICH SELBER EINE MIDDLEWARE SCHREIBEN
+
+
+// middleware function for rocket:
+// fn check_auth(req: &mut rocket::Request<'_>)  {
+fn check_auth(auth_token: String) -> bool {
+    let mut client = Client::connect("host=database port=5432 user=postgres password=test", NoTls).unwrap();
+    // let token = req.headers().get_one("token");
+
+    let query_result = client.query("SELECT * FROM users WHERE auth_token = $1 and 10000000 > (SELECT EXTRACT(EPOCH FROM ((SELECT CURRENT_TIMESTAMP::timestamp) - auth_token_timestamp::timestamp)));",
+                                    &[&auth_token]).unwrap();
+    let vec_user = create_users_list(query_result);
+    if vec_user.len() == 1 {
+        return true
+    } else {
+        return false
+    }
+}
 
 fn create_users_list(query_result: Vec<postgres::row::Row>) -> Vec<User> {
 
