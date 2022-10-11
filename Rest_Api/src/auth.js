@@ -2,7 +2,7 @@ module.exports = function() {
 
     var module = {};
     
-    module.checkAuth = function(req, res) {
+    module.checkAuth = function(req, res, next) {
         var auth_token = req.headers.Authorization;
 
         var error = function() {
@@ -16,13 +16,13 @@ module.exports = function() {
         }
 
         if(auth_token != null) {
-            
+            next();
         } else {
-            error();
+            next();
         }
     }
 
-    module.checkAuthAdmin = function(req, res) {
+    module.checkAuthAdmin = function(req, res, next) {
 
         var auth_token = req.headers.Authorization;
 
@@ -36,9 +36,9 @@ module.exports = function() {
         }
 
         if(auth_token != null) {
-
+            next();
         } else {
-            error();
+            next();
         }
     }
 
