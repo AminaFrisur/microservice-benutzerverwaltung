@@ -27,7 +27,7 @@ function checkParams(req, res, requiredParams) {
             && !(req.params && param in req.params)) {
             let error = "error parameter " + param + " is missing";
             console.log(error);
-            res.send(401, error);
+            res.send(401).send(error);
             return;
         }
 
@@ -48,12 +48,14 @@ function checkParams(req, res, requiredParams) {
 const app = express();
 var Auth = require('./auth.js')();
 var crypt = require('./crypt.js')();
+var jwt = require('jsonwebtoken');
 
 app.get('/getUsers', [Auth.checkAuthAdmin, jsonBodyParser], async function (req, res) {
     
     pool.query('SELECT id, email, firstname, lastname, street, house_number, postal_code, login_name FROM users', (error, results) => {
         if (error) {
-            res.send(401, error);
+            res.send(401).send(error);
+            return;
         }
         const response = JSON.parse(JSON.stringify(results.rows).replace(/\w\:/g, ''));
         res.send(200, response);
@@ -66,10 +68,11 @@ app.get('/getUser/:id', [Auth.checkAuthAdmin, jsonBodyParser], async function (r
 
     pool.query('SELECT id, email, firstname, lastname, street, house_number, postal_code, login_name FROM users WHERE id = $1', [params.id], (error, results) => {
         if (error) {
-            res.send(401, error);
+            res.send(401).send(error);
+            return;
         }
         const response = JSON.parse(JSON.stringify(results.rows).replace(/\w\:/g, ''));
-        res.send(200, response);
+        res.send(200).send(response);
     })
 });
 
@@ -86,9 +89,50 @@ app.post('/register', [Auth.checkAuth, jsonBodyParser], async function (req, res
         (error, results) => {
         if (error) {
             res.status(401).send(error);
+            return;
         }
         res.status(200).send("User created");
     })
+});
+
+app.post('/login', [Auth.checkAuth, jsonBodyParser], async function (req, res) {
+
+    let params = checkParams(req, res, ["login_name", "password"]);
+    
+    pool.query(
+        "SELECT password FROM users WHERE login_name = $1",
+        [params.login_name],
+        async (error, results) => {
+            if (error) {
+                res.status(401).send(error);
+                return;
+            }
+            if (results.rows.length != 1) {
+                res.status(401).send("Login failed");
+                return;
+            }
+            
+            let dbPasswordHash = results.rows[0].password;
+            let checkPassword = await crypt.checkPasswordHash(params.password, dbPasswordHash);
+            if(!checkPassword) {
+                res.status(401).send("Login failed");
+            } else {
+                
+                var token = jwt.sign({ login_name: params.login_name }, 'ms_benutzerverwaltung');
+                
+                pool.query(
+                    "UPDATE users SET auth_token = $1, auth_token_timestamp = (SELECT CURRENT_TIMESTAMP) WHERE login_name = $2",
+                    [token, params.login_name],
+                    async (error, results) => {
+                        if (error) {
+                            res.status(401).send(error);
+                            return;
+                        }
+                        res.status(200).send({"message": "Login successfull", "auth_token": token});
+                    });
+            }
+        })
+    
 });
 
 app.listen(PORT, HOST, () => {

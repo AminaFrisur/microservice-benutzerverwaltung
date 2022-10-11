@@ -10,10 +10,8 @@ module.exports = function() {
             
     }
     
-    module.checkPasswordHash = function(plainPassword, hash) {
-        bcrypt.compare(plainPassword, hash, function(err, result) {
-            return result;
-        });
+    module.checkPasswordHash = async function(plainPassword, hash) {
+        return bcrypt.compare(plainPassword, hash);
     }
 
     return module;
