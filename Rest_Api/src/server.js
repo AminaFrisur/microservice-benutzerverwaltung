@@ -1,7 +1,7 @@
 'use strict';
 
 
-// TODO: create checkAuthAdmin and add user rights to users table
+// TODO: deleteUser post api -> erstmal nicht nötig
 
 
 const express = require('express');
@@ -54,7 +54,7 @@ var Auth = require('./auth.js')();
 var crypt = require('./crypt.js')();
 var jwt = require('jsonwebtoken');
 
-app.get('/getUsers', [Auth.checkAuth, jsonBodyParser], async function (req, res) {
+app.get('/getUsers', [Auth.checkAuthAdmin, jsonBodyParser], async function (req, res) {
     
     pool.query('SELECT id, email, firstname, lastname, street, house_number, postal_code, login_name FROM users', (error, results) => {
         if (error) {
@@ -67,7 +67,7 @@ app.get('/getUsers', [Auth.checkAuth, jsonBodyParser], async function (req, res)
     
 });
 
-app.get('/getUser/:id', [Auth.checkAuth, jsonBodyParser], async function (req, res) {
+app.get('/getUser/:id', [Auth.checkAuthAdmin, jsonBodyParser], async function (req, res) {
     let params = checkParams(req, res, ["id"]);
 
     pool.query('SELECT id, email, firstname, lastname, street, house_number, postal_code, login_name FROM users WHERE id = $1', [params.id], (error, results) => {
@@ -139,7 +139,7 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
     
 });
 
-app.post('/changeUserData', [Auth.checkAuth, jsonBodyParser], async function (req, res) {
+app.post('/changeUserData', [Auth.checkAuthUser, jsonBodyParser], async function (req, res) {
 
     let params = checkParams(req, res, ["email", "firstname", "lastname", "house_number", "street", "postal_code", "login_name"]);
     let auth_token = req.headers.auth_token;
