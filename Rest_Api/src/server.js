@@ -1,5 +1,9 @@
 'use strict';
 
+
+// TODO: create checkAuthAdmin and add user rights to users table
+
+
 const express = require('express');
 const bodyParser = require('body-parser');
 var jsonBodyParser = bodyParser.json({ type: 'application/json' });
@@ -50,7 +54,7 @@ var Auth = require('./auth.js')();
 var crypt = require('./crypt.js')();
 var jwt = require('jsonwebtoken');
 
-app.get('/getUsers', [Auth.checkAuthAdmin, jsonBodyParser], async function (req, res) {
+app.get('/getUsers', [Auth.checkAuth, jsonBodyParser], async function (req, res) {
     
     pool.query('SELECT id, email, firstname, lastname, street, house_number, postal_code, login_name FROM users', (error, results) => {
         if (error) {
@@ -63,7 +67,7 @@ app.get('/getUsers', [Auth.checkAuthAdmin, jsonBodyParser], async function (req,
     
 });
 
-app.get('/getUser/:id', [Auth.checkAuthAdmin, jsonBodyParser], async function (req, res) {
+app.get('/getUser/:id', [Auth.checkAuth, jsonBodyParser], async function (req, res) {
     let params = checkParams(req, res, ["id"]);
 
     pool.query('SELECT id, email, firstname, lastname, street, house_number, postal_code, login_name FROM users WHERE id = $1', [params.id], (error, results) => {
@@ -76,7 +80,7 @@ app.get('/getUser/:id', [Auth.checkAuthAdmin, jsonBodyParser], async function (r
     })
 });
 
-app.post('/register', [Auth.checkAuth, jsonBodyParser], async function (req, res) {
+app.post('/register', [jsonBodyParser], async function (req, res) {
 
     let params = checkParams(req, res, ["email", "firstname", "lastname", "house_number", "street", "postal_code", "login_name", "password"]);
     
@@ -95,7 +99,7 @@ app.post('/register', [Auth.checkAuth, jsonBodyParser], async function (req, res
     })
 });
 
-app.post('/login', [Auth.checkAuth, jsonBodyParser], async function (req, res) {
+app.post('/login', [jsonBodyParser], async function (req, res) {
 
     let params = checkParams(req, res, ["login_name", "password"]);
     
@@ -133,6 +137,22 @@ app.post('/login', [Auth.checkAuth, jsonBodyParser], async function (req, res) {
             }
         })
     
+});
+
+app.post('/changeUserData', [Auth.checkAuth, jsonBodyParser], async function (req, res) {
+
+    let params = checkParams(req, res, ["email", "firstname", "lastname", "house_number", "street", "postal_code", "login_name"]);
+    let auth_token = req.headers.auth_token;
+    pool.query(
+        "UPDATE users SET email = $1, firstname = $2, lastname = $3 , street = $4 , house_number = $5 , postal_code = $6  WHERE login_name= $7 AND auth_token = $8",
+        [params.email, params.firstname, params.lastname, params.street ,params.house_number, params.postal_code, params.login_name, auth_token],
+        (error, results) => {
+            if (error) {
+                res.status(401).send(error);
+                return;
+            }
+            res.status(200).send("User updated");
+        })
 });
 
 app.listen(PORT, HOST, () => {
