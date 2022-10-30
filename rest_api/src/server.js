@@ -1,7 +1,7 @@
 'use strict';
 
 
-// TODO: deleteUser post api -> erstmal nicht nötig
+// deleteUser post api -> erstmal nicht nötig -> hoechstens inactive setzen
 
 
 const express = require('express');
@@ -14,7 +14,7 @@ const HOST = '0.0.0.0';
 const Pool = require('pg').Pool
 const pool = new Pool({
     user: 'postgres',
-    host: 'database',
+    host: 'db-benutzerverwaltung1',
     database: 'postgres',
     password: 'test',
     port: 5432,
@@ -31,7 +31,7 @@ function checkParams(req, res, requiredParams) {
             && !(req.params && param in req.params)) {
             let error = "error parameter " + param + " is missing";
             console.log(error);
-            res.send(401).send(error);
+            throw error;
             return;
         }
 
@@ -137,6 +137,28 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
             }
         })
     
+});
+
+// Gibt Timestamp von übergebenen Token zurück
+// Falls Token nicht korrekt oder Falsch -> error
+app.post('/checkAuthUser', [jsonBodyParser], async function (req, res) {
+    try {
+        let params = checkParams(req, res, ["login_name", "auth_token"]);
+
+    // prüfe ob auth token richtig ist
+    // dieser Call wird gebraucht für MS die direkt mit dem User kommunizieren
+    // Also für die MS Trip und Buchungsverwaltung wichtig
+        let result = await Auth.checkTokenAndGetTimestamp(params.auth_token, params.login_name);
+        res.status(200).send(result);
+    } catch (error) {
+        console.log(error);
+        res.status(401).send(error);
+    }
+
+
+
+
+
 });
 
 app.post('/changeUserData', [Auth.checkAuthUser, jsonBodyParser], async function (req, res) {

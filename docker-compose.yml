@@ -1,21 +1,27 @@
 
 networks:
-  main:
+  service:
+    name: benutzerverwaltung-service-main
+  architecture:
+    name: main
 
 services:
-  rest_api:
-    image: rest_api_fuhrpark_ms
+  rest-api-benutzerverwaltung1:
+    container_name: rest-api-benutzerverwaltung1
+    build: rest_api
     ports:
       - "8000:8000"
     networks:
-      - main
+      - service
+      - architecture
 
-  database:
-    image: datenbank_postgres_fuhrpark_ms
+  db-benutzerverwaltung1:
+    build: datenbank
+    container_name: db-benutzerverwaltung1
     ports:
       - "5432:5432"
     networks:
-      - main
+      - service
     environment:
       POSTGRES_PASSWORD: test
-      network-alias: database
+      network-alias: db-benutzerverwaltung1
