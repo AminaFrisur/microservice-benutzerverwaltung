@@ -17,10 +17,20 @@ module.exports = function() {
 
     let getAuthTokenTimeStamp = 'SELECT login_name, auth_token, auth_token_timestamp FROM users WHERE login_name = $1 AND auth_token = $2 AND  10000000 > (SELECT EXTRACT(EPOCH FROM ((SELECT CURRENT_TIMESTAMP::timestamp) - auth_token_timestamp::timestamp)))';
 
-    module.checkTokenAndGetTimestamp = async function getAuthTokenAndTimestamp(token, login_name) {
+    module.checkTokenAndGetTimestamp = async function getAuthTokenAndTimestamp(token, login_name, isAdmin) {
         return new Promise((resolve,reject) => {
 
-            pool.query(getAuthTokenTimeStamp,
+            let sqlQuery;
+
+            console.log(isAdmin);
+
+            if(isAdmin == true) {
+                sqlQuery = getAuthTokenTimeStamp + ' AND is_admin = True';
+            } else {
+                sqlQuery = getAuthTokenTimeStamp;
+            }
+
+            pool.query(sqlQuery,
                 [login_name, token],
                 (error, results) => {
                     if (error) {

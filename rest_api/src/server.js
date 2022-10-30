@@ -143,20 +143,17 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
 // Falls Token nicht korrekt oder Falsch -> error
 app.post('/checkAuthUser', [jsonBodyParser], async function (req, res) {
     try {
-        let params = checkParams(req, res, ["login_name", "auth_token"]);
+        let params = checkParams(req, res, ["login_name", "auth_token", "isAdmin"]);
 
     // prüfe ob auth token richtig ist
     // dieser Call wird gebraucht für MS die direkt mit dem User kommunizieren
     // Also für die MS Trip und Buchungsverwaltung wichtig
-        let result = await Auth.checkTokenAndGetTimestamp(params.auth_token, params.login_name);
+        let result = await Auth.checkTokenAndGetTimestamp(params.auth_token, params.login_name, params.isAdmin);
         res.status(200).send(result);
     } catch (error) {
         console.log(error);
         res.status(401).send(error);
     }
-
-
-
 
 
 });
