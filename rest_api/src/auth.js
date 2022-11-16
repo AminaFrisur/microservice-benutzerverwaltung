@@ -15,7 +15,7 @@ module.exports = function() {
     let sqlAdmin = 'SELECT * FROM users WHERE login_name = $1 AND auth_token = $2 AND  10000000 > (SELECT EXTRACT(EPOCH FROM ((SELECT CURRENT_TIMESTAMP::timestamp) - auth_token_timestamp::timestamp)))';
     let sqlUser = 'SELECT * FROM users WHERE is_admin = TRUE AND login_name = $1 AND auth_token = $2 AND  10000000 > (SELECT EXTRACT(EPOCH FROM ((SELECT CURRENT_TIMESTAMP::timestamp) - auth_token_timestamp::timestamp)))';
 
-    let getAuthTokenTimeStamp = 'SELECT login_name, auth_token, auth_token_timestamp FROM users WHERE login_name = $1 AND auth_token = $2 AND  10000000 > (SELECT EXTRACT(EPOCH FROM ((SELECT CURRENT_TIMESTAMP::timestamp) - auth_token_timestamp::timestamp)))';
+    let getAuthTokenTimeStamp = 'SELECT login_name, auth_token, auth_token_timestamp, is_admin FROM users WHERE login_name = $1 AND auth_token = $2 AND  10000000 > (SELECT EXTRACT(EPOCH FROM ((SELECT CURRENT_TIMESTAMP::timestamp) - auth_token_timestamp::timestamp)))';
 
     module.checkTokenAndGetTimestamp = async function getAuthTokenAndTimestamp(token, login_name, isAdmin) {
         return new Promise((resolve,reject) => {
