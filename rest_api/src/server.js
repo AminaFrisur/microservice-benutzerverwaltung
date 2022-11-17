@@ -20,6 +20,11 @@ const pool = new Pool({
     port: 5432,
 })
 
+
+// https://jsramblings.com/authentication-with-node-and-jwt-a-simple-example/
+const JWT_SECRET =
+    "goK!pusp6ThEdURUtRenOwUhAsWUCLheBazl!uJLPlS8EbreWLdrupIwabRAsiBu";
+
 function checkParams(req, res, requiredParams) {
     console.log("checkParams", requiredParams);
     let paramsToReturn = {};
@@ -121,8 +126,9 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
             if(!checkPassword) {
                 res.status(401).send("Login failed");
             } else {
-                
-                var token = jwt.sign({ login_name: params.login_name }, 'ms_benutzerverwaltung');
+
+                // attribut, Privater Schlüssel
+                var token = jwt.sign({ login_name: params.login_name }, JWT_SECRET);
                 
                 pool.query(
                     "UPDATE users SET auth_token = $1, auth_token_timestamp = (SELECT CURRENT_TIMESTAMP) WHERE login_name = $2",
