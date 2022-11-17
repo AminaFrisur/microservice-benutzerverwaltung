@@ -4,7 +4,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 var jsonBodyParser = bodyParser.json({ type: 'application/json' });
-const fs = require('fs');
 // Constants
 const PORT = 8000;
 const HOST = '0.0.0.0';
@@ -18,28 +17,11 @@ const pool = new Pool({
     port: 5432,
 })
 
-const crypt = require('./compiled_wasm_modules/pkg');
-const importObject = {
-    imports: {
-        encrypt(plain_text_password) {
-            console.log(plain_text_password);
-        },
-        check_password_hash(plain_password, hash) {
-            console.log(plain_password, hash);
-        }
-    },
-};
+const JWT_SECRET =
+    "goK!pusp6ThEdURUtRenOwUhAsWUCLheBazl!uJLPlS8EbreWLdrupIwabRAsiBu";
 
-// Quelle: https://nodejs.dev/en/learn/nodejs-with-webassembly/
-const importCrypt = async function () {
-    const wasmBuffer = fs.readFileSync('./compiled_wasm_modules/crypt.wasm');
-    console.log(wasmBuffer);
-    const wasmModule = await WebAssembly.instantiate(wasmBuffer, importObject);
-    console.log(wasmModule);
-    const api = wasmModule.instance.exports;
-    console.log(api)
-    return api;
-}
+const crypt = require('./compiled_wasm_modules/crypt/pkg');
+const jwt = require('./compiled_wasm_modules/jwt/pkg');
 
 function checkParams(req, res, requiredParams) {
     console.log("checkParams", requiredParams);
@@ -72,7 +54,6 @@ function checkParams(req, res, requiredParams) {
 // App
 const app = express();
 var Auth = require('./auth.js')();
-var jwt = require('jsonwebtoken');
 
 app.get('/getUsers', [Auth.checkAuthAdmin, jsonBodyParser], async function (req, res) {
     
@@ -143,7 +124,7 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
                 res.status(401).send("Login failed");
             } else {
                 
-                var token = jwt.sign({ login_name: params.login_name }, 'ms_benutzerverwaltung');
+                var token = jwt.jwt_sign(params.login_name , JWT_SECRET);
                 
                 pool.query(
                     "UPDATE users SET auth_token = $1, auth_token_timestamp = (SELECT CURRENT_TIMESTAMP) WHERE login_name = $2",
