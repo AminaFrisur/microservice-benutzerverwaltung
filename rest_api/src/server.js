@@ -1,12 +1,10 @@
 'use strict';
 
-
 // deleteUser post api -> erstmal nicht nötig -> hoechstens inactive setzen
-
-
 const express = require('express');
 const bodyParser = require('body-parser');
 var jsonBodyParser = bodyParser.json({ type: 'application/json' });
+const fs = require('fs');
 // Constants
 const PORT = 8000;
 const HOST = '0.0.0.0';
@@ -19,6 +17,29 @@ const pool = new Pool({
     password: 'test',
     port: 5432,
 })
+
+const crypt = require('./compiled_wasm_modules/pkg');
+const importObject = {
+    imports: {
+        encrypt(plain_text_password) {
+            console.log(plain_text_password);
+        },
+        check_password_hash(plain_password, hash) {
+            console.log(plain_password, hash);
+        }
+    },
+};
+
+// Quelle: https://nodejs.dev/en/learn/nodejs-with-webassembly/
+const importCrypt = async function () {
+    const wasmBuffer = fs.readFileSync('./compiled_wasm_modules/crypt.wasm');
+    console.log(wasmBuffer);
+    const wasmModule = await WebAssembly.instantiate(wasmBuffer, importObject);
+    console.log(wasmModule);
+    const api = wasmModule.instance.exports;
+    console.log(api)
+    return api;
+}
 
 function checkParams(req, res, requiredParams) {
     console.log("checkParams", requiredParams);
@@ -51,7 +72,6 @@ function checkParams(req, res, requiredParams) {
 // App
 const app = express();
 var Auth = require('./auth.js')();
-var crypt = require('./crypt.js')();
 var jwt = require('jsonwebtoken');
 
 app.get('/getUsers', [Auth.checkAuthAdmin, jsonBodyParser], async function (req, res) {
@@ -84,9 +104,10 @@ app.post('/register', [jsonBodyParser], async function (req, res) {
 
     let params = checkParams(req, res, ["email", "firstname", "lastname", "house_number", "street", "postal_code", "login_name", "password"]);
     
-    // encrypt password
-    let passwordHash = await crypt.encrypt(params.password);
-    
+    //encrypt password
+
+    let passwordHash = crypt.encrypt(params.password);
+
     pool.query(
         'INSERT INTO users(email, firstname, lastname, street, house_number, postal_code, login_name, password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
         [params.email, params.firstname, params.lastname, params.street ,params.house_number, params.postal_code, params.login_name, passwordHash], 
@@ -117,7 +138,7 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
             }
             
             let dbPasswordHash = results.rows[0].password;
-            let checkPassword = await crypt.checkPasswordHash(params.password, dbPasswordHash);
+            let checkPassword = crypt.check_password_hash(params.password, dbPasswordHash);
             if(!checkPassword) {
                 res.status(401).send("Login failed");
             } else {
