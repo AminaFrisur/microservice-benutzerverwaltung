@@ -26,6 +26,7 @@ const jwt = require('./compiled_wasm_modules/jwt/pkg');
 function checkParams(req, res, requiredParams) {
     console.log("checkParams", requiredParams);
     let paramsToReturn = {};
+    console.log(req.body);
     for (let i = 0; i < requiredParams.length; i++) {
             let param = requiredParams[i];
             
@@ -89,11 +90,14 @@ app.post('/register', [jsonBodyParser], async function (req, res) {
 
     let passwordHash = crypt.encrypt(params.password);
 
+    // TODO: Extra Error Message wenn Login Name schon in DB vorhanden ist
+
     pool.query(
         'INSERT INTO users(email, firstname, lastname, street, house_number, postal_code, login_name, password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
         [params.email, params.firstname, params.lastname, params.street ,params.house_number, params.postal_code, params.login_name, passwordHash], 
         (error, results) => {
         if (error) {
+            console.log(error);
             res.status(401).send(error);
             return;
         }
@@ -103,41 +107,49 @@ app.post('/register', [jsonBodyParser], async function (req, res) {
 
 app.post('/login', [jsonBodyParser], async function (req, res) {
 
-    let params = checkParams(req, res, ["login_name", "password"]);
-    
-    pool.query(
-        "SELECT password FROM users WHERE login_name = $1",
-        [params.login_name],
-        async (error, results) => {
-            if (error) {
-                res.status(401).send(error);
-                return;
-            }
-            if (results.rows.length != 1) {
-                res.status(401).send("Login failed");
-                return;
-            }
-            
-            let dbPasswordHash = results.rows[0].password;
-            let checkPassword = crypt.check_password_hash(params.password, dbPasswordHash);
-            if(!checkPassword) {
-                res.status(401).send("Login failed");
-            } else {
-                
-                var token = jwt.jwt_sign(params.login_name , JWT_SECRET);
-                
-                pool.query(
-                    "UPDATE users SET auth_token = $1, auth_token_timestamp = (SELECT CURRENT_TIMESTAMP) WHERE login_name = $2",
-                    [token, params.login_name],
-                    async (error, results) => {
-                        if (error) {
-                            res.status(401).send(error);
-                            return;
-                        }
-                        res.status(200).send({"message": "Login successfull", "auth_token": token});
-                    });
-            }
-        })
+    try {
+        let params = checkParams(req, res, ["login_name", "password"]);
+
+        pool.query(
+            "SELECT password FROM users WHERE login_name = $1",
+            [params.login_name],
+            async (error, results) => {
+                if (error) {
+                    res.status(401).send(error);
+                    return;
+                }
+                if (results.rows.length != 1) {
+                    res.status(401).send("Login failed");
+                    return;
+                }
+
+                let dbPasswordHash = results.rows[0].password;
+                let checkPassword = crypt.check_password_hash(params.password, dbPasswordHash);
+                if(!checkPassword) {
+                    res.status(401).send("Login failed");
+                } else {
+
+                    var token = jwt.jwt_sign(params.login_name , JWT_SECRET);
+
+                    pool.query(
+                        "UPDATE users SET auth_token = $1, auth_token_timestamp = (SELECT CURRENT_TIMESTAMP) WHERE login_name = $2",
+                        [token, params.login_name],
+                        async (error, results) => {
+                            if (error) {
+                                res.status(401).send(error);
+                                return;
+                            }
+                            res.status(200).send({"message": "Login successfull", "auth_token": token});
+                        });
+                }
+            })
+
+    } catch (error) {
+        console.log(error);
+        res.status(401).send(error);
+    }
+
+
     
 });
 
