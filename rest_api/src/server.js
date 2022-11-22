@@ -1,6 +1,5 @@
 'use strict';
 
-// deleteUser post api -> erstmal nicht nötig -> hoechstens inactive setzen
 const express = require('express');
 const bodyParser = require('body-parser');
 var jsonBodyParser = bodyParser.json({ type: 'application/json' });
@@ -17,11 +16,13 @@ const pool = new Pool({
     port: 5432,
 })
 
+
 const JWT_SECRET =
     "goK!pusp6ThEdURUtRenOwUhAsWUCLheBazl!uJLPlS8EbreWLdrupIwabRAsiBu";
 
 const crypt = require('./compiled_wasm_modules/crypt/pkg');
 const jwt = require('./compiled_wasm_modules/jwt/pkg');
+
 
 function checkParams(req, res, requiredParams) {
     console.log("checkParams", requiredParams);
@@ -57,52 +58,68 @@ const app = express();
 var Auth = require('./auth.js')();
 
 app.get('/getUsers', [Auth.checkAuthAdmin, jsonBodyParser], async function (req, res) {
-    
-    pool.query('SELECT id, email, firstname, lastname, street, house_number, postal_code, login_name FROM users', (error, results) => {
-        if (error) {
-            res.send(401).send(error);
-            return;
-        }
-        const response = JSON.parse(JSON.stringify(results.rows).replace(/\w\:/g, ''));
-        res.send(200, response);
-    })
+
+    try {
+        pool.query('SELECT id, email, firstname, lastname, street, house_number, postal_code, login_name FROM users', (error, results) => {
+            if (error) {
+                res.send(401).send(error);
+                return;
+            }
+            const response = JSON.parse(JSON.stringify(results.rows).replace(/\w\:/g, ''));
+            res.send(200, response);
+        })
+    } catch (error) {
+        console.log(error);
+        res.status(401).send(error);
+    }
+
+
     
 });
 
 app.get('/getUser/:id', [Auth.checkAuthAdmin, jsonBodyParser], async function (req, res) {
-    let params = checkParams(req, res, ["id"]);
 
-    pool.query('SELECT id, email, firstname, lastname, street, house_number, postal_code, login_name FROM users WHERE id = $1', [params.id], (error, results) => {
-        if (error) {
-            res.send(401).send(error);
-            return;
-        }
-        const response = JSON.parse(JSON.stringify(results.rows).replace(/\w\:/g, ''));
-        res.send(200).send(response);
-    })
+    try {
+        let params = checkParams(req, res, ["id"]);
+
+        pool.query('SELECT id, email, firstname, lastname, street, house_number, postal_code, login_name FROM users WHERE id = $1', [params.id], (error, results) => {
+            if (error) {
+                res.send(401).send(error);
+                return;
+            }
+            const response = JSON.parse(JSON.stringify(results.rows).replace(/\w\:/g, ''));
+            res.send(200).send(response);
+        })
+    }  catch (error) {
+        console.log(error);
+        res.status(401).send(error);
+    }
+
 });
 
 app.post('/register', [jsonBodyParser], async function (req, res) {
 
-    let params = checkParams(req, res, ["email", "firstname", "lastname", "house_number", "street", "postal_code", "login_name", "password"]);
-    
-    //encrypt password
+    try {
+        let params = checkParams(req, res, ["email", "firstname", "lastname", "house_number", "street", "postal_code", "login_name", "password"]);
+        // TODO: Extra Error Message wenn Login Name schon in DB vorhanden ist
+        // encrypt password
+        let passwordHash = await crypt.encrypt(params.password);
 
-    let passwordHash = crypt.encrypt(params.password);
+        pool.query(
+            'INSERT INTO users(email, firstname, lastname, street, house_number, postal_code, login_name, password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+            [params.email, params.firstname, params.lastname, params.street ,params.house_number, params.postal_code, params.login_name, passwordHash],
+            (error, results) => {
+                if (error) {
+                    res.status(401).send(error);
+                    return;
+                }
+                res.status(200).send("User created");
+            })
+    } catch (error) {
+        console.log(error);
+        res.status(401).send(error);
+    }
 
-    // TODO: Extra Error Message wenn Login Name schon in DB vorhanden ist
-
-    pool.query(
-        'INSERT INTO users(email, firstname, lastname, street, house_number, postal_code, login_name, password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-        [params.email, params.firstname, params.lastname, params.street ,params.house_number, params.postal_code, params.login_name, passwordHash], 
-        (error, results) => {
-        if (error) {
-            console.log(error);
-            res.status(401).send(error);
-            return;
-        }
-        res.status(200).send("User created");
-    })
 });
 
 app.post('/login', [jsonBodyParser], async function (req, res) {
@@ -149,8 +166,6 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
         res.status(401).send(error);
     }
 
-
-    
 });
 
 // Gibt Timestamp von übergebenen Token zurück
@@ -168,24 +183,28 @@ app.post('/checkAuthUser', [jsonBodyParser], async function (req, res) {
         console.log(error);
         res.status(401).send(error);
     }
-
-
 });
 
 app.post('/changeUserData', [Auth.checkAuthUser, jsonBodyParser], async function (req, res) {
 
-    let params = checkParams(req, res, ["email", "firstname", "lastname", "house_number", "street", "postal_code", "login_name"]);
-    let auth_token = req.headers.auth_token;
-    pool.query(
-        "UPDATE users SET email = $1, firstname = $2, lastname = $3 , street = $4 , house_number = $5 , postal_code = $6  WHERE login_name= $7 AND auth_token = $8",
-        [params.email, params.firstname, params.lastname, params.street ,params.house_number, params.postal_code, params.login_name, auth_token],
-        (error, results) => {
-            if (error) {
-                res.status(401).send(error);
-                return;
-            }
-            res.status(200).send("User updated");
-        })
+    try {
+        let params = checkParams(req, res, ["email", "firstname", "lastname", "house_number", "street", "postal_code", "login_name"]);
+        let auth_token = req.headers.auth_token;
+        pool.query(
+            "UPDATE users SET email = $1, firstname = $2, lastname = $3 , street = $4 , house_number = $5 , postal_code = $6  WHERE login_name= $7 AND auth_token = $8",
+            [params.email, params.firstname, params.lastname, params.street ,params.house_number, params.postal_code, params.login_name, auth_token],
+            (error, results) => {
+                if (error) {
+                    res.status(401).send(error);
+                    return;
+                }
+                res.status(200).send("User updated");
+            })
+    } catch (error) {
+        console.log(error);
+        res.status(401).send(error);
+    }
+
 });
 
 app.listen(PORT, HOST, () => {
