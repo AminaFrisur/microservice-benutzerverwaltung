@@ -10,18 +10,25 @@ services:
     container_name: rest-api-benutzerverwaltung1
     build: rest_api
     ports:
-      - "8000:8000"
+      - 8000:8000
     networks:
       - service
       - architecture
+    environment:
+      - MYSQL_ROOT_PASSWORD=test
+      - MYSQL_HOST=database-mysql-benutzerverwaltung1
+    depends_on:
+      - database-mysql-benutzerverwaltung1
 
-  db-benutzerverwaltung1:
-    build: datenbank
-    container_name: db-benutzerverwaltung1
-    ports:
-      - "5432:5432"
+  database-mysql-benutzerverwaltung1:
+    container_name: database-mysql-benutzerverwaltung1
+    command: --default-authentication-plugin=mysql_native_password
+    build: ./datenbank
+    environment:
+      - MYSQL_ROOT_PASSWORD=test
     networks:
       - service
-    environment:
-      POSTGRES_PASSWORD: test
-      network-alias: db-benutzerverwaltung1
+    expose:
+      - 3001
+    ports:
+      - 3001:3306

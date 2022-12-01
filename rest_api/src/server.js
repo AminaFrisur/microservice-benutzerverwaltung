@@ -7,18 +7,32 @@ var jsonBodyParser = bodyParser.json({ type: 'application/json' });
 const PORT = 8000;
 const HOST = '0.0.0.0';
 
-const Pool = require('pg').Pool
-const pool = new Pool({
-    user: 'postgres',
-    host: 'db-benutzerverwaltung1',
-    database: 'postgres',
-    password: 'test',
-    port: 5432,
-})
+var mysql = require('mysql');
+var pool  = mysql.createPool({
+    connectionLimit : 10000,
+    host            : process.env.MYSQL_HOST,
+    user            : 'root',
+    password        : process.env.MYSQL_ROOT_PASSWORD,
+    database        : 'benutzerverwaltung'
+});
 
+const middlerwareCheckAuth = (isAdmin, pool) => {
+    return (req, res, next) => {
+        Auth.checkAuth(req, res, isAdmin, pool, next);
+    }
+}
 
-// https://jsramblings.com/authentication-with-node-and-jwt-a-simple-example/
-const JWT_SECRET = "goK!pusp6ThEdURUtRenOwUhAsWUCLheBazl!uJLPlS8EbreWLdrupIwabRAsiBu";
+function rand() {
+    return Math.random().toString(36).substring(2); // remove `0.`
+};
+
+function createToken(iterations) {
+    var token = "";
+    for(let i = 0; i <= iterations; i++) {
+        token += rand();
+    }
+    return token
+};
 
 function checkParams(req, res, requiredParams) {
     console.log("checkParams", requiredParams);
@@ -52,34 +66,31 @@ function checkParams(req, res, requiredParams) {
 const app = express();
 var Auth = require('./auth.js')();
 var crypt = require('./crypt.js')();
-var jwt = require('jsonwebtoken');
 
-app.get('/getUsers', [Auth.checkAuthAdmin, jsonBodyParser], async function (req, res) {
+app.get('/getUsers', [middlerwareCheckAuth(true, pool), jsonBodyParser], async function (req, res) {
 
     try {
-        pool.query('SELECT id, email, firstname, lastname, street, house_number, postal_code, login_name FROM users', (error, results) => {
+        pool.query('SELECT email, firstname, lastname, street, house_number, postal_code, login_name FROM users', (error, results) => {
             if (error) {
-                res.send(401).send(error);
+                res.status(500).send(error);
                 return;
             }
-            const response = JSON.parse(JSON.stringify(results.rows).replace(/\w\:/g, ''));
-            res.send(200, response);
+            // const response = JSON.parse(JSON.stringify(results.rows).replace(/\w\:/g, ''));
+            res.status(200).send(results);
         })
     } catch (error) {
         console.log(error);
         res.status(401).send(error);
     }
-
-
     
 });
 
-app.get('/getUser/:id', [Auth.checkAuthAdmin, jsonBodyParser], async function (req, res) {
+app.get('/getUser/:loginName', [middlerwareCheckAuth(true, pool), jsonBodyParser], async function (req, res) {
 
     try {
-        let params = checkParams(req, res, ["id"]);
+        let params = checkParams(req, res, ["loginName"]);
 
-        pool.query('SELECT id, email, firstname, lastname, street, house_number, postal_code, login_name FROM users WHERE id = $1', [params.id], (error, results) => {
+        pool.query('SELECT email, firstname, lastname, street, house_number, postal_code, login_name FROM users WHERE loginName = $1', [params.loginName], (error, results) => {
             if (error) {
                 res.send(401).send(error);
                 return;
@@ -127,30 +138,26 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
         let params = checkParams(req, res, ["login_name", "password"]);
 
         pool.query(
-            "SELECT password, is_admin FROM users WHERE login_name = $1",
-            [params.login_name],
+            `SELECT password, is_admin FROM users WHERE login_name='${params.login_name}' `,
             async (error, results) => {
                 if (error) {
-                    res.status(401).send(error);
+                    res.status(500).send(error);
                     return;
                 }
-                if (results.rows.length != 1) {
+                if (results.length != 1) {
                     res.status(401).send("Login failed");
                     return;
                 }
-                let is_admin = results.rows[0].is_admin;
-                let dbPasswordHash = results.rows[0].password;
+                let is_admin = results[0].is_admin;
+                let dbPasswordHash = results[0].password;
                 let checkPassword = await crypt.checkPasswordHash(params.password, dbPasswordHash);
                 if(!checkPassword) {
                     res.status(401).send("Login failed");
                 } else {
-
-                    // attribut, Privater Schlüssel
-                    var token = jwt.sign({ login_name: params.login_name }, JWT_SECRET);
+                    var token = createToken(10);
 
                     pool.query(
-                        "UPDATE users SET auth_token = $1, auth_token_timestamp = (SELECT CURRENT_TIMESTAMP) WHERE login_name = $2",
-                        [token, params.login_name],
+                        `UPDATE users SET auth_token = '${token}', auth_token_timestamp = (SELECT CURRENT_TIMESTAMP) WHERE login_name = '${params.login_name}'`,
                         async (error, results) => {
                             if (error) {
                                 res.status(401).send(error);
@@ -177,7 +184,7 @@ app.post('/checkAuthUser', [jsonBodyParser], async function (req, res) {
     // prüfe ob auth token richtig ist
     // dieser Call wird gebraucht für MS die direkt mit dem User kommunizieren
     // Also für die MS Trip und Buchungsverwaltung wichtig
-        let result = await Auth.checkTokenAndGetTimestamp(params.auth_token, params.login_name, params.isAdmin);
+        let result = await Auth.checkTokenAndGetTimestamp(params.auth_token, params.login_name, params.isAdmin, pool);
         res.status(200).send(result);
     } catch (error) {
         console.log(error);
@@ -185,7 +192,7 @@ app.post('/checkAuthUser', [jsonBodyParser], async function (req, res) {
     }
 });
 
-app.post('/changeUserData', [Auth.checkAuthUser, jsonBodyParser], async function (req, res) {
+app.post('/changeUserData', [middlerwareCheckAuth(false, pool), jsonBodyParser], async function (req, res) {
 
     try {
         let params = checkParams(req, res, ["email", "firstname", "lastname", "house_number", "street", "postal_code", "login_name"]);
