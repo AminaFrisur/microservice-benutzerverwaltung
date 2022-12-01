@@ -127,7 +127,7 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
         let params = checkParams(req, res, ["login_name", "password"]);
 
         pool.query(
-            "SELECT password FROM users WHERE login_name = $1",
+            "SELECT password, is_admin FROM users WHERE login_name = $1",
             [params.login_name],
             async (error, results) => {
                 if (error) {
@@ -138,7 +138,7 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
                     res.status(401).send("Login failed");
                     return;
                 }
-
+                let is_admin = results.rows[0].is_admin;
                 let dbPasswordHash = results.rows[0].password;
                 let checkPassword = await crypt.checkPasswordHash(params.password, dbPasswordHash);
                 if(!checkPassword) {
@@ -156,7 +156,7 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
                                 res.status(401).send(error);
                                 return;
                             }
-                            res.status(200).send({"message": "Login successfull", "auth_token": token});
+                            res.status(200).send({"message": "Login successfull", "auth_token": token, "auth_token_timestamp": Date.now(), "is_admin": is_admin});
                         });
                 }
             })
