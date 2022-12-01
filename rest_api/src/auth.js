@@ -17,7 +17,7 @@ module.exports = function() {
                     if (error) {
                         reject(error);
                     }
-                    if(results.rows.length != 1) {
+                    if(results.length != 1) {
                         reject("Token wurde nicht gefunden oder ist nicht mehr valide. Nutzer muss sich neues Token beziehen!");
                     } else {
                         // Token ist korrekt und Timestamp ist noch im validen Zeitbereich
