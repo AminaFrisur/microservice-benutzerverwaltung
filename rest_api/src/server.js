@@ -99,7 +99,6 @@ app.get('/getUser/:loginName', [middlerwareCheckAuth(true, pool), jsonBodyParser
 
         })
     }  catch (error) {
-        console.log(error);
         res.status(401).send(error);
     }
 
@@ -113,22 +112,22 @@ app.post('/register', [jsonBodyParser], async function (req, res) {
         // encrypt password
         let passwordHash = await crypt.encrypt(params.password);
 
+        var data  = {"email": params.email, "firstname": params.firstname, "lastname": params.lastname, "street": params.street,
+                     "postal_code": params.postal_code, "login_name": params.login_name, "password": passwordHash,
+                     "house_number": params.house_number};
         pool.query(
-            'INSERT INTO users(email, firstname, lastname, street, house_number, postal_code, login_name, password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-            [params.email, params.firstname, params.lastname, params.street ,params.house_number, params.postal_code, params.login_name, passwordHash],
-            (error, results) => {
+            'INSERT INTO users SET ?',
+            data, function(error, results) {
                 if (error) {
-                    res.status(401).send(error);
-                    return;
+                    res.status(500).send(error);
+                } else {
+                    res.status(200).send("User created");
                 }
-                res.status(200).send("User created");
+
             })
     } catch (error) {
-        console.log(error);
         res.status(401).send(error);
     }
-
-
 
 });
 
