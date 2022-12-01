@@ -90,13 +90,13 @@ app.get('/getUser/:loginName', [middlerwareCheckAuth(true, pool), jsonBodyParser
     try {
         let params = checkParams(req, res, ["loginName"]);
 
-        pool.query('SELECT email, firstname, lastname, street, house_number, postal_code, login_name FROM users WHERE loginName = $1', [params.loginName], (error, results) => {
+        pool.query(`SELECT email, firstname, lastname, street, house_number, postal_code, login_name FROM users WHERE login_name = '${params.loginName}'`, function(error, results) {
             if (error) {
-                res.send(401).send(error);
-                return;
+                res.status(500).send(error);
+            } else {
+                res.status(200).send(results);
             }
-            const response = JSON.parse(JSON.stringify(results.rows).replace(/\w\:/g, ''));
-            res.send(200).send(response);
+
         })
     }  catch (error) {
         console.log(error);
