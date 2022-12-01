@@ -196,18 +196,20 @@ app.post('/changeUserData', [middlerwareCheckAuth(false, pool), jsonBodyParser],
     try {
         let params = checkParams(req, res, ["email", "firstname", "lastname", "house_number", "street", "postal_code", "login_name"]);
         let auth_token = req.headers.auth_token;
-        pool.query(
-            "UPDATE users SET email = $1, firstname = $2, lastname = $3 , street = $4 , house_number = $5 , postal_code = $6  WHERE login_name= $7 AND auth_token = $8",
-            [params.email, params.firstname, params.lastname, params.street ,params.house_number, params.postal_code, params.login_name, auth_token],
-            (error, results) => {
+
+        var data  = {"email": params.email, "firstname": params.firstname, "lastname": params.lastname, "street": params.street,
+                    "postal_code": params.postal_code, "house_number": params.house_number};
+
+
+        pool.query(`UPDATE users SET ?  WHERE login_name='${params.login_name}' AND auth_token = '${auth_token}'`, data,
+            function(error, results){
                 if (error) {
-                    res.status(401).send(error);
-                    return;
+                    res.status(500).send(error);
+                } else {
+                    res.status(200).send("User updated");
                 }
-                res.status(200).send("User updated");
             })
     } catch (error) {
-        console.log(error);
         res.status(401).send(error);
     }
 
