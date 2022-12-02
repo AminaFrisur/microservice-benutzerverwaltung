@@ -10,7 +10,7 @@ services:
     container_name: rest-api-benutzerverwaltung1
     build: rest_api
     ports:
-      - 8000:8000
+      - 8005:8000
     networks:
       - service
       - architecture
@@ -20,6 +20,35 @@ services:
     depends_on:
       - database-mysql-benutzerverwaltung1
 
+  rest-api-benutzerverwaltung2:
+    container_name: rest-api-benutzerverwaltung2
+    build: rest_api
+    ports:
+      - 8006:8000
+    networks:
+      - service
+      - architecture
+    environment:
+      - MYSQL_ROOT_PASSWORD=test
+      - MYSQL_HOST=database-mysql-benutzerverwaltung1
+    depends_on:
+      - database-mysql-benutzerverwaltung1
+
+  rest-api-benutzerverwaltung3:
+    container_name: rest-api-benutzerverwaltung3
+    build: rest_api
+    ports:
+      - 8007:8000
+    networks:
+      - service
+      - architecture
+    environment:
+      - MYSQL_ROOT_PASSWORD=test
+      - MYSQL_HOST=database-mysql-benutzerverwaltung1
+    depends_on:
+      - database-mysql-benutzerverwaltung1
+
+
   database-mysql-benutzerverwaltung1:
     container_name: database-mysql-benutzerverwaltung1
     command: --default-authentication-plugin=mysql_native_password
@@ -28,7 +57,19 @@ services:
       - MYSQL_ROOT_PASSWORD=test
     networks:
       - service
-    expose:
-      - 3001
     ports:
-      - 3001:3306
+      - 3308:3306
+
+  api-gateway-benutzerverwaltung:
+    container_name: api-gateway-benutzerverwaltung
+    build: ./api_gateway
+    networks:
+      - service
+      - architecture
+    ports:
+      - 8081:80
+    depends_on:
+      - database-mysql-fuhrpark1
+      - rest-api-benutzerverwaltung1
+      - rest-api-benutzerverwaltung2
+      - rest-api-benutzerverwaltung3
