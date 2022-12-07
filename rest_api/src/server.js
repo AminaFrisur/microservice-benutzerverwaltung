@@ -52,7 +52,7 @@ function checkParams(req, res, requiredParams) {
 }
 
 // Normalerweise sollte dies beim Starten des MS aus Konfiguration oder einem Netzwerkspeicher geladen werden
-const JWT_SECRET = "goK!pusp6ThEdURUtRenOwUhAsWUCLheBazl!uJLPlS8EbreWLdrupIwabRAsiBu";
+const JWT_SECRET = "goK!pusp6ThEdURUtRenOwUhAsWUCLheasfr43qrf43rttq3";
 
 // App
 const app = express();
@@ -141,14 +141,18 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
                     return;
                 }
                 let is_admin = results[0].is_admin;
+                if(is_admin == 1) {
+                    is_admin = true;
+                } else {
+                    is_admin = false;
+                }
                 let dbPasswordHash = results[0].password;
                 let checkPassword = await crypt.checkPasswordHash(params.password, dbPasswordHash);
                 if(!checkPassword) {
                     res.status(401).send("Login failed");
                 } else {
                     // Erstelle Jason Web Token
-                    var token =  jwt.sign({ "login_name": params.login_name, "isAdmin": is_admin }, JWT_SECRET);
-
+                    var token = jwt.sign({ login_name: params.login_name, is_admin: is_admin }, JWT_SECRET);
                     pool.query(
                         `UPDATE users SET auth_token = '${token}', auth_token_timestamp = (SELECT CURRENT_TIMESTAMP) WHERE login_name = '${params.login_name}'`,
                         async (error, results) => {
