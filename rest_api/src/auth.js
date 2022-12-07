@@ -1,33 +1,6 @@
 module.exports = function() {
 
     var module = {};
-    module.checkTokenAndGetTimestamp = async function(token, login_name, isAdmin, pool) {
-        return new Promise((resolve,reject) => {
-
-            let sqlQuery;
-
-            if(isAdmin == true) {
-                sqlQuery = `SELECT login_name, auth_token, auth_token_timestamp, is_admin FROM users WHERE login_name = '${login_name}'  AND auth_token = '${token}'  AND  24 > (SELECT TIMESTAMPDIFF(HOUR, (SELECT CURRENT_TIMESTAMP), auth_token_timestamp )) AND is_admin=TRUE`;
-            } else {
-                sqlQuery = `SELECT login_name, auth_token, auth_token_timestamp, is_admin FROM users WHERE login_name = '${login_name}'  AND auth_token = '${token}'  AND  24 > (SELECT TIMESTAMPDIFF(HOUR, (SELECT CURRENT_TIMESTAMP), auth_token_timestamp ))`;
-            }
-
-            pool.query(sqlQuery,
-                function(error, results) {
-                    if (error) {
-                        reject(error);
-                    }
-                    if(results.length != 1) {
-                        reject("Token wurde nicht gefunden oder ist nicht mehr valide. Nutzer muss sich neues Token beziehen!");
-                    } else {
-                        // Token ist korrekt und Timestamp ist noch im validen Zeitbereich
-                        console.log(results)
-                        resolve(results);
-                    }
-            })
-        })
-    }
-    
     function unvalidTokenResponse(res) {
         res.status(401).send("Token wurde nicht gefunden oder ist nicht mehr valide. Nutzer muss sich neues Token beziehen!");
     }

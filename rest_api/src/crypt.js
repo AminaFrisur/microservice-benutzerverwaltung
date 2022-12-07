@@ -5,7 +5,7 @@ module.exports = function() {
     const bcrypt = require('bcrypt');
     const saltRounds = 10;
     
-    module.encrypt = async function(planTextPassword) {
+    module.hashPassword = async function(planTextPassword) {
         return bcrypt.hash(planTextPassword, saltRounds);
             
     }

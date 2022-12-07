@@ -3,7 +3,8 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 var jsonBodyParser = bodyParser.json({ type: 'application/json' });
-// Constants
+
+// beides Konstanten, da innerhalb des Docker Netzwerkes arbeitet
 const PORT = 8000;
 const HOST = '0.0.0.0';
 
@@ -21,18 +22,6 @@ const middlerwareCheckAuth = (isAdmin, pool) => {
         Auth.checkAuth(req, res, isAdmin, pool, next);
     }
 }
-
-function rand() {
-    return Math.random().toString(36).substring(2); // remove `0.`
-};
-
-function createToken(iterations) {
-    var token = "";
-    for(let i = 0; i <= iterations; i++) {
-        token += rand();
-    }
-    return token
-};
 
 function checkParams(req, res, requiredParams) {
     console.log("checkParams", requiredParams);
@@ -62,10 +51,14 @@ function checkParams(req, res, requiredParams) {
     return  paramsToReturn;
 }
 
+// Normalerweise sollte dies beim Starten des MS aus Konfiguration oder einem Netzwerkspeicher geladen werden
+const JWT_SECRET = "goK!pusp6ThEdURUtRenOwUhAsWUCLheBazl!uJLPlS8EbreWLdrupIwabRAsiBu";
+
 // App
 const app = express();
 var Auth = require('./auth.js')();
 var crypt = require('./crypt.js')();
+var jwt = require('jsonwebtoken');
 
 app.get('/getUsers', [middlerwareCheckAuth(true, pool), jsonBodyParser], async function (req, res) {
 
@@ -109,8 +102,8 @@ app.post('/register', [jsonBodyParser], async function (req, res) {
     try {
         let params = checkParams(req, res, ["email", "firstname", "lastname", "house_number", "street", "postal_code", "login_name", "password"]);
 
-        // encrypt password
-        let passwordHash = await crypt.encrypt(params.password);
+        // hash Password password
+        let passwordHash = await crypt.hashPassword(params.password);
 
         var data  = {"email": params.email, "firstname": params.firstname, "lastname": params.lastname, "street": params.street,
                      "postal_code": params.postal_code, "login_name": params.login_name, "password": passwordHash,
@@ -153,7 +146,8 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
                 if(!checkPassword) {
                     res.status(401).send("Login failed");
                 } else {
-                    var token = createToken(10);
+                    // Erstelle Jason Web Token
+                    var token =  jwt.sign({ "login_name": params.login_name, "isAdmin": is_admin }, JWT_SECRET);
 
                     pool.query(
                         `UPDATE users SET auth_token = '${token}', auth_token_timestamp = (SELECT CURRENT_TIMESTAMP) WHERE login_name = '${params.login_name}'`,
@@ -162,7 +156,7 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
                                 res.status(401).send(error);
                                 return;
                             }
-                            res.status(200).send({"message": "Login successfull", "auth_token": token, "auth_token_timestamp": Date.now(), "is_admin": is_admin});
+                            res.status(200).send({"message": "Login successfull", "auth_token": token});
                         });
                 }
             })
@@ -172,23 +166,6 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
     }
 
     
-});
-
-// Gibt Timestamp von übergebenen Token zurück
-// Falls Token nicht korrekt oder Falsch -> error
-app.post('/checkAuthUser', [jsonBodyParser], async function (req, res) {
-    try {
-        let params = checkParams(req, res, ["login_name", "auth_token", "isAdmin"]);
-
-    // prüfe ob auth token richtig ist
-    // dieser Call wird gebraucht für MS die direkt mit dem User kommunizieren
-    // Also für die MS Trip und Buchungsverwaltung wichtig
-        let result = await Auth.checkTokenAndGetTimestamp(params.auth_token, params.login_name, params.isAdmin, pool);
-        res.status(200).send(result);
-    } catch (error) {
-        console.log(error);
-        res.status(401).send(error);
-    }
 });
 
 app.post('/changeUserData', [middlerwareCheckAuth(false, pool), jsonBodyParser], async function (req, res) {
