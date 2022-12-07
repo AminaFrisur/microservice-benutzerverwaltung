@@ -152,7 +152,7 @@ app.post('/login', [jsonBodyParser], async function (req, res) {
                     res.status(401).send("Login failed");
                 } else {
                     // Erstelle Jason Web Token
-                    var token = jwt.sign({ login_name: params.login_name, is_admin: is_admin }, JWT_SECRET);
+                    var token = jwt.sign({ login_name: params.login_name, is_admin: is_admin, iat: Date.now() }, JWT_SECRET);
                     pool.query(
                         `UPDATE users SET auth_token = '${token}', auth_token_timestamp = (SELECT CURRENT_TIMESTAMP) WHERE login_name = '${params.login_name}'`,
                         async (error, results) => {

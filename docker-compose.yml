@@ -10,7 +10,7 @@ services:
     container_name: rest-api-benutzerverwaltung1
     build: rest_api
     ports:
-      - 8005:8000
+      - 8004:8000
     networks:
       - service
       - architecture
@@ -24,7 +24,7 @@ services:
     container_name: rest-api-benutzerverwaltung2
     build: rest_api
     ports:
-      - 8006:8000
+      - 8005:8000
     networks:
       - service
       - architecture
@@ -38,7 +38,7 @@ services:
     container_name: rest-api-benutzerverwaltung3
     build: rest_api
     ports:
-      - 8007:8000
+      - 8006:8000
     networks:
       - service
       - architecture
